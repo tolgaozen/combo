@@ -3,6 +3,7 @@ package prompt
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 )
 
 // Locale defines the supported languages for commit messages.
@@ -23,6 +24,25 @@ const (
 	RuRU Locale = "ru-RU" // Russian (Russia).
 	ArSA Locale = "ar-SA" // Arabic (Saudi Arabia).
 	HiIN Locale = "hi-IN" // Hindi (India).
+)
+
+// Constants for better maintainability
+const (
+	DefaultMaxLength     = 72
+	DefaultBranchLength  = 50
+	CommitPromptTemplate = `Write a concise and relevant git commit message for the given code diff:
+Language: %s
+Maximum length: %d characters.
+Focus: Only include details about the code changes. Avoid unnecessary information such as translations or extra explanations.
+Format: Use the specified commit message format:
+%s
+%s
+`
+	BranchPromptTemplate = `Generate a concise and descriptive Git branch name for the given context:
+Language: %s
+Maximum length: %d characters.
+Focus: Use hyphens to separate words. The branch name should reflect the changes being made or the feature being implemented.
+`
 )
 
 func (c Locale) String() string {
@@ -65,6 +85,12 @@ var commitTypeDescriptions = map[CommitType]string{
 	Test:     "Adding missing tests or correcting existing tests.",
 }
 
+// Cached JSON for commit type descriptions
+var (
+	cachedCommitTypeJSON string
+	jsonCacheOnce        sync.Once
+)
+
 // CommitStyle defines the type of commit message formats.
 type CommitStyle string
 
@@ -89,20 +115,29 @@ func SpecifyCommitFormat(style CommitStyle) (string, error) {
 }
 
 // generateCommitTypeDescriptions converts the commitTypeDescriptions map to a JSON string
-// and formats it for inclusion in the prompt.
+// and formats it for inclusion in the prompt. Uses caching for better performance.
 func generateCommitTypeDescriptions() (string, error) {
-	descriptionMap := make(map[string]string)
-	for key, value := range commitTypeDescriptions {
-		descriptionMap[string(key)] = value
+	jsonCacheOnce.Do(func() {
+		descriptionMap := make(map[string]string, len(commitTypeDescriptions))
+		for key, value := range commitTypeDescriptions {
+			descriptionMap[string(key)] = value
+		}
+
+		jsonDescriptions, err := json.MarshalIndent(descriptionMap, "", "  ")
+		if err != nil {
+			cachedCommitTypeJSON = "" // Set empty on error
+			return
+		}
+		cachedCommitTypeJSON = string(jsonDescriptions)
+	})
+
+	if cachedCommitTypeJSON == "" {
+		return "", fmt.Errorf("failed to generate commit descriptions")
 	}
 
-	jsonDescriptions, err := json.MarshalIndent(descriptionMap, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to generate commit descriptions: %v", err)
-	}
 	return fmt.Sprintf(
 		"Choose a type from the type-to-description JSON below that best describes the git diff:\n%s",
-		string(jsonDescriptions),
+		cachedCommitTypeJSON,
 	), nil
 }
 
@@ -131,17 +166,33 @@ func WithMaxLength(maxLength int) Option {
 	}
 }
 
+// validateConfig validates the configuration and returns an error if invalid
+func validateConfig(config *Config) error {
+	if config.Locale.String() == "" {
+		return fmt.Errorf("locale cannot be empty")
+	}
+	if config.MaxLength <= 0 {
+		return fmt.Errorf("maxLength must be greater than 0")
+	}
+	return nil
+}
+
 // GenerateCommitPrompt generates a concise prompt for creating git commit messages.
 func GenerateCommitPrompt(style CommitStyle, opts ...Option) (string, error) {
 	// Default configuration
 	config := &Config{
-		Locale:    EnUS, // Default to en-US
-		MaxLength: 72,   // Default max length
+		Locale:    EnUS,             // Default to en-US
+		MaxLength: DefaultMaxLength, // Default max length
 	}
 
 	// Apply functional options
 	for _, opt := range opts {
 		opt(config)
+	}
+
+	// Validate configuration
+	if err := validateConfig(config); err != nil {
+		return "", err
 	}
 
 	commitDescriptions := ""
@@ -167,29 +218,14 @@ func GenerateCommitPrompt(style CommitStyle, opts ...Option) (string, error) {
 	return buildCommitPrompt(config)
 }
 
-// buildPrompt constructs the final prompt string based on the given configuration.
+// buildCommitPrompt constructs the final prompt string based on the given configuration.
 func buildCommitPrompt(config *Config) (string, error) {
-	// Validate configuration
-	if config.Locale.String() == "" {
-		return "", fmt.Errorf("locale cannot be empty")
-	}
-	if config.MaxLength <= 0 {
-		return "", fmt.Errorf("maxLength must be greater than 0")
-	}
 	if config.CommitFormat == "" {
 		return "", fmt.Errorf("commitFormat cannot be empty")
 	}
 
-	// Construct the prompt
-	return fmt.Sprintf(
-		`Write a concise and relevant git commit message for the given code diff:
-Language: %s
-Maximum length: %d characters.
-Focus: Only include details about the code changes. Avoid unnecessary information such as translations or extra explanations.
-Format: Use the specified commit message format:
-%s
-%s
-`,
+	// Use template for better performance
+	return fmt.Sprintf(CommitPromptTemplate,
 		config.Locale.String(),
 		config.MaxLength,
 		config.CommitDescriptions,
@@ -201,8 +237,8 @@ Format: Use the specified commit message format:
 func GenerateBranchNamePrompt(opts ...Option) (string, error) {
 	// Default configuration
 	config := &Config{
-		Locale:    EnUS, // Default to en-US
-		MaxLength: 50,   // Default max length for branch names
+		Locale:    EnUS,                // Default to en-US
+		MaxLength: DefaultBranchLength, // Default max length for branch names
 	}
 
 	// Apply functional options
@@ -211,11 +247,8 @@ func GenerateBranchNamePrompt(opts ...Option) (string, error) {
 	}
 
 	// Validate configuration
-	if config.Locale.String() == "" {
-		return "", fmt.Errorf("locale cannot be empty")
-	}
-	if config.MaxLength <= 0 {
-		return "", fmt.Errorf("maxLength must be greater than 0")
+	if err := validateConfig(config); err != nil {
+		return "", err
 	}
 
 	// Construct the branch name prompt
@@ -224,12 +257,7 @@ func GenerateBranchNamePrompt(opts ...Option) (string, error) {
 
 // buildBranchNamePrompt constructs the final prompt string based on the given configuration.
 func buildBranchNamePrompt(config *Config) (string, error) {
-	return fmt.Sprintf(
-		`Generate a concise and descriptive Git branch name for the given context:
-Language: %s
-Maximum length: %d characters.
-Focus: Use hyphens to separate words. The branch name should reflect the changes being made or the feature being implemented.
-`,
+	return fmt.Sprintf(BranchPromptTemplate,
 		config.Locale.String(),
 		config.MaxLength,
 	), nil
