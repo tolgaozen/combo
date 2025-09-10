@@ -115,6 +115,7 @@ func branch() func(cmd *cobra.Command, args []string) error {
 openai_api_key=
 prompt_locale=en-US
 prompt_max_length=72
+openai_model=gpt-4o-mini
 `
 		if err := EnsureConfig(configPath, defaultContent); err != nil {
 			return fmt.Errorf("failed to ensure configuration: %w", err)
@@ -137,8 +138,17 @@ prompt_max_length=72
 			locale = "en-US" // Default locale
 		}
 
-		// Initialize the OpenAI client
-		client := internal.NewOpenAIClient(apiKey)
+		// Get the OpenAI model from config
+		model, ok := config["openai_model"]
+		if !ok || model == "" {
+			model = internal.ModelGPT4oMini // Default model
+		}
+
+		// Initialize the OpenAI client with the specified model
+		client, err := internal.NewOpenAIClientWithModel(apiKey, model)
+		if err != nil {
+			return fmt.Errorf("failed to initialize OpenAI client: %w", err)
+		}
 
 		// Generate a prompt
 		p, err := prompt.GenerateBranchNamePrompt(
@@ -155,7 +165,7 @@ prompt_max_length=72
 		}
 
 		// Prepare the chat completion request
-		request := internal.CreateChatCompletionRequest(p, diff)
+		request := client.CreateChatCompletionRequest(p, diff)
 
 		// Set up a context with a timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
