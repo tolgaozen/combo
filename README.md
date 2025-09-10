@@ -1,8 +1,8 @@
 # 🚀 Combo CLI
+
+## AI-Powered Git Workflow Automation
   
-**AI-Powered Git Workflow Automation**
-  
-[![Version](https://img.shields.io/badge/version-v0.2.3-blue.svg)](https://github.com/tolgaOzen/combo/releases)
+[![Version](https://img.shields.io/badge/version-v0.2.4-blue.svg)](https://github.com/tolgaOzen/combo/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/tolgaOzen/combo)](https://goreportcard.com/report/github.com/tolgaOzen/combo)
   
@@ -18,7 +18,8 @@
 🔗 **Issue Tracker Integration** - Link commits to issues automatically  
 📚 **Changelog Generation** - Auto-generate changelogs from Git history  
 🌍 **Multi-language Support** - Support for 15+ languages and locales  
-⚙️ **Configurable** - Customize prompts, formats, and AI behavior
+⚙️ **Configurable** - Customize prompts, formats, AI models, and behavior  
+🎯 **Multiple AI Models** - Choose from GPT-4o, GPT-4o-mini, GPT-3.5-turbo, and more
 
 ## 📦 Installation
 
@@ -50,16 +51,27 @@ make build
 ## 🚀 Quick Start
 
 1. **Set up your OpenAI API key:**
+
    ```bash
    combo config set openai_api_key sk-your-api-key-here
    ```
 
-2. **Stage some changes:**
+2. **Optional: Choose your AI model (default: gpt-4o-mini):**
+
+   ```bash
+   combo config set openai_model gpt-4o-mini  # Best balance
+   # combo config set openai_model gpt-4o     # Highest quality
+   # combo config set openai_model gpt-3.5-turbo  # Most cost-effective
+   ```
+
+3. **Stage some changes:**
+
    ```bash
    git add .
    ```
 
-3. **Generate and commit:**
+4. **Generate and commit:**
+
    ```bash
    combo commit
    ```
@@ -97,6 +109,7 @@ Would you like to use this message? (Y/n):
 ```
 
 **Commit Types Supported:**
+
 - `feat` - New features
 - `fix` - Bug fixes  
 - `docs` - Documentation changes
@@ -114,7 +127,8 @@ combo branch
 ```
 
 **Example Output:**
-```
+
+```text
 feat/oauth2-google-integration
 fix/memory-leak-user-service
 docs/api-authentication-guide
@@ -129,6 +143,7 @@ Combo stores configuration in `~/.combo/config`. The file is created automatical
 | Setting | Description | Default | Example |
 |---------|-------------|---------|---------|
 | `openai_api_key` | Your OpenAI API key | *Required* | `sk-xxx...` |
+| `openai_model` | OpenAI model to use | `gpt-4o-mini` | `gpt-4o-mini`, `gpt-4o`, `gpt-3.5-turbo` |
 | `prompt_locale` | Language for prompts | `en-US` | `en-US`, `fr-FR`, `es-ES` |
 | `prompt_max_length` | Max commit message length | `72` | `50`, `72`, `100` |
 
@@ -137,11 +152,13 @@ Combo stores configuration in `~/.combo/config`. The file is created automatical
 ```bash
 # Set configuration values
 combo config set openai_api_key sk-your-key-here
+combo config set openai_model gpt-4o-mini
 combo config set prompt_locale en-US
 combo config set prompt_max_length 72
 
 # Get configuration values  
 combo config get openai_api_key
+combo config get openai_model
 combo config get prompt_locale
 ```
 
@@ -156,6 +173,22 @@ combo config get prompt_locale
 | German | `de-DE` | Portuguese (Brazil) | `pt-BR` |
 | Italian | `it-IT` | Russian | `ru-RU` |
 | Arabic | `ar-SA` | Hindi | `hi-IN` |
+
+### 🤖 Supported OpenAI Models
+
+| Model | Description | Cost | Speed | Quality |
+|-------|-------------|------|-------|---------|
+| `gpt-4o-mini` | **Default** - Best balance of cost and quality | Low | Fast | High |
+| `gpt-4o` | Latest and most capable model | High | Medium | Highest |
+| `gpt-4-turbo` | High-quality with good speed | High | Medium | High |
+| `gpt-4` | Original GPT-4 model | High | Medium | High |
+| `gpt-3.5-turbo` | Fast and cost-effective | Very Low | Very Fast | Good |
+
+**Recommendations:**
+
+- **Default**: `gpt-4o-mini` - Perfect for most use cases
+- **High Quality**: `gpt-4o` - For complex or critical commits
+- **Budget**: `gpt-3.5-turbo` - For high-volume usage
 
 ## 🔄 Example Workflow
 
@@ -188,20 +221,23 @@ git checkout feat/user-authentication
 
 ### Common Issues
 
-**Error: "missing or empty 'openai_api_key' in configuration"**
+#### Error: "missing or empty 'openai_api_key' in configuration"
+
 ```bash
 # Solution: Set your OpenAI API key
 combo config set openai_api_key sk-your-key-here
 ```
 
-**Error: "no staged changes found"**
+#### Error: "no staged changes found"
+
 ```bash
 # Solution: Stage your changes first
 git add .
 # Then run combo commit
 ```
 
-**Error: "git command failed"**
+#### Error: "git command failed"
+
 ```bash
 # Solution: Ensure you're in a git repository
 git init
@@ -209,9 +245,18 @@ git init
 git --version
 ```
 
+#### Error: "unsupported model: [model-name]"
+
+```bash
+# Solution: Use a supported model
+combo config set openai_model gpt-4o-mini
+# Check available models in the Supported OpenAI Models section above
+```
+
 ### 🔍 Debug Mode
 
 Enable verbose logging for troubleshooting:
+
 ```bash
 export COMBO_DEBUG=1
 combo commit
@@ -223,17 +268,23 @@ We welcome contributions! Here's how to get started:
 
 1. **Fork the repository**
 2. **Create a feature branch:**
+
    ```bash
    git checkout -b feature/amazing-feature
    ```
+
 3. **Make your changes and commit:**
+
    ```bash
    combo commit  # Use combo to generate your commit message!
    ```
+
 4. **Push to your branch:**
+
    ```bash
    git push origin feature/amazing-feature
    ```
+
 5. **Open a Pull Request**
 
 ### 🏗️ Development Setup
